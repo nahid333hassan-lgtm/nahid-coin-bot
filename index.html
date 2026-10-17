@@ -6,27 +6,77 @@
 <title>Miner Panel</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-body{margin:0;font-family:sans-serif;background:#f6f8fc;color:#1e293b;padding:16px}
+body{margin:0;font-family:sans-serif;background:#f6f8fc;color:#1e293b;padding:16px 16px 100px}
 .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rate{font-size:28px;font-weight:700}
 .tag{float:right;font-size:12px;color:#fff;padding:2px 8px;border-radius:6px}
 .on{background:#22c55e}.off{background:#ef4444}
 small{color:#64748b}
+.page{display:none}.page.show{display:block}
+.btn{display:block;text-align:center;padding:14px;border-radius:12px;background:#0ea5e9;color:#fff;text-decoration:none;font-weight:700;margin-bottom:10px}
+.btn.alt{background:#e0e7ff;color:#1d4ed8}
+details{margin-bottom:10px}summary{font-weight:700}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;align-items:center;padding:8px 0;box-shadow:0 -2px 8px #0002}
+nav a{flex:1;text-align:center;font-size:13px;color:#64748b;text-decoration:none;padding:6px 0}
+nav a.act{color:#2563eb;font-weight:700}
+nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-weight:700}
 </style>
 </head>
 <body>
-<div class="card"><h2 id="name">...</h2><small id="uname"></small></div>
-<h3>Live Market Rates</h3>
-<div class="grid" id="rates"></div>
+
+<div id="home" class="page show">
+  <div class="card"><h2 id="name">...</h2><small id="uname"></small></div>
+  <a class="btn" href="#" onclick="tg.openTelegramLink(CHANNEL);return false">Join Official Channel</a>
+  <h3>Live Market Rates</h3>
+  <div class="grid" id="rates"></div>
+</div>
+
+<div id="tutorial" class="page">
+  <h2>Learning Center</h2>
+  <div class="card"><b>NS FOLLOWERS COIN কীভাবে Sell করবেন?</b><br><small>ভিডিও শীঘ্রই যোগ হবে</small></div>
+  <div class="card"><b>TOP FOLLOW COIN কীভাবে Sell করবেন?</b><br><small>ভিডিও শীঘ্রই যোগ হবে</small></div>
+</div>
+
+<div id="support" class="page">
+  <h2>Need Assistance?</h2>
+  <a class="btn" href="#" onclick="tg.openTelegramLink(CHANNEL);return false">Join Official Channel</a>
+  <a class="btn alt" href="#" onclick="tg.openTelegramLink(ADMIN);return false">Contact Admin Support</a>
+  <div class="card">
+    <h3>Frequently Asked Questions</h3>
+    <details open><summary>How long does it take to process?</summary><small>Most requests are processed within 5-10 minutes during active hours.</small></details>
+    <details><summary>My request was rejected. Why?</summary><small>Requests are typically rejected if the coin transfer was not received, or if the provided transaction details were incorrect.</small></details>
+  </div>
+</div>
+
+<div id="history" class="page">
+  <h2>Transaction History</h2>
+  <div class="card"><small>এখনো কোনো লেনদেন নেই।</small></div>
+</div>
+
+<nav>
+  <a href="#" data-p="home" onclick="show('home');return false">Home</a>
+  <a href="#" data-p="tutorial" onclick="show('tutorial');return false">Tutorial</a>
+  <a href="#" class="sell" onclick="tg.showAlert('SellNow শীঘ্রই আসছে');return false">SellNow</a>
+  <a href="#" data-p="support" onclick="show('support');return false">Support</a>
+  <a href="#" data-p="history" onclick="show('history');return false">History</a>
+</nav>
+
 <script>
 const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+const CHANNEL = "https://t.me/YOUR_CHANNEL";
+const ADMIN = "https://t.me/YOUR_USERNAME";
 const u = tg.initDataUnsafe.user || {};
 document.getElementById("name").textContent = ((u.first_name||"")+" "+(u.last_name||"")).trim() || "Guest";
 document.getElementById("uname").textContent = u.username ? "@"+u.username : "";
+function show(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("show",p.id===id));
+  document.querySelectorAll("nav a[data-p]").forEach(a=>a.classList.toggle("act",a.dataset.p===id));
+}
+show("home");
 fetch("/api/rates").then(r=>r.json()).then(list=>{
- document.getElementById("rates").innerHTML = list.map(c=>`<div class="card"><span class="tag ${c.active?"on":"off"}">${c.active?"Active":"Buy Stop"}</span><b>${c.name}</b><div class="rate">${c.rate}৳</div><small>Per 1,000 Coins</small></div>`).join("");
+  document.getElementById("rates").innerHTML = list.map(c=>`<div class="card"><span class="tag ${c.active?"on":"off"}">${c.active?"Active":"Buy Stop"}</span><b>${c.name}</b><div class="rate">${c.rate}৳</div><small>Per 1,000 Coins</small></div>`).join("");
 });
 </script>
 </body>
-</html>
+                                                                                                                                                                                                          </html>
