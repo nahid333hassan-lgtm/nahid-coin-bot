@@ -52,7 +52,7 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
   <div class="info" id="info"></div>
   <div class="card">
     <label>কয়েন</label>
-    <select id="coin" onchange="updateTotal()"></select>
+    <select id="coin" onchange="updateTotal()"></select><div class="info" id="addrbox" style="display:none;margin-top:12px"></div>
     <label>পরিমাণ (কয়েন সংখ্যা)</label>
     <input id="amount" type="number" inputmode="numeric" placeholder="যেমন: 12000" oninput="updateTotal()">
     <label>পেমেন্ট মাধ্যম</label>
@@ -125,7 +125,9 @@ async function loadRates(){
   updateTotal();
 }
 
-function updateTotal(){
+function updateTotal(){  const cc = RATES.find(r => r.name === $("coin").value);
+  const box = $("addrbox");
+  if (cc && cc.send_to) { box.style.display = "block"; box.textContent = "📤 এই ঠিকানায় কয়েন পাঠান:\n" + cc.send_to; } else { box.style.display = "none"; }
   const c = RATES.find(r => r.name === $("coin").value);
   const a = parseInt($("amount").value) || 0;
   $("total").textContent = (c && a) ? "আপনি পাবেন: " + (a / 1000 * c.rate).toFixed(2) + "৳" : "";
