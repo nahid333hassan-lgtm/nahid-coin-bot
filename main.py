@@ -244,3 +244,32 @@ async def info():
         return {"text": rows[0]["value"] if rows else ""}
     except Exception:
         return {"text": ""}
+
+@dp.message(Command("setaddr"))
+async def set_addr(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    args = (command.args or "").strip()
+    try:
+        rows = await sb("GET", "rates", params={"select": "name"})
+        names = sorted((r["name"] for r in rows), key=len, reverse=True)
+        name = next((n for n in names if args.upper().startswith(n.upper())), None)
+        addr = args[len(name):].strip() if name else ""
+        if not name or not addr:
+            await m.answer("ব্যবহার: /setaddr কয়েনের নাম ঠিকানা\nউদাহরণ: /setaddr NS COIN @myusername")
+            return
+        await sb("PATCH", "rates", params={"name": f"eq.{name}"}, body={"send_to": addr[:300]})
+        await m.answer(f"✅ {name}-এর ঠিকানা বদলেছে:\n{addr[:300]}")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("addrs"))
+async def show_addrs(m: Message):
+    if m.from_user.id != ADMIN_ID:
+        return
+    try:
+        rows = await sb("GET", "rates", params={"select": "name,send_to", "order": "name"})
+        await m.answer("\n".join(f"{r['name']}: {r.get('send_to') or '(নেই)'}" for r in rows) or "কোনো কয়েন নেই")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
