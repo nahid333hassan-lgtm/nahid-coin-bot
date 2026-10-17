@@ -221,3 +221,26 @@ async def sell(d: Sell):
     except Exception:
         pass
     return {"ok": True, "id": t["id"], "total": total}
+
+@dp.message(Command("setinfo"))
+async def set_info(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    text = (command.args or "").strip()
+    if not text:
+        await m.answer("ব্যবহার: /setinfo আপনার লেখা নির্দেশনা")
+        return
+    try:
+        await sb("PATCH", "settings", params={"key": "eq.send_info"}, body={"value": text[:500]})
+        await m.answer("✅ নির্দেশনা বদলে গেছে:\n" + text[:500])
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@app.get("/api/info")
+async def info():
+    try:
+        rows = await sb("GET", "settings", params={"key": "eq.send_info"})
+        return {"text": rows[0]["value"] if rows else ""}
+    except Exception:
+        return {"text": ""}
