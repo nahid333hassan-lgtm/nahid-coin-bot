@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miner Panel</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#f6f8fc;color:#1e293b;padding:16px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rate{font-size:28px;font-weight:700}
+.tag{float:right;font-size:12px;color:#fff;padding:2px 8px;border-radius:6px}
+.on{background:#22c55e}.off{background:#ef4444}
+small{color:#64748b}
+</style>
+</head>
+<body>
+<div class="card"><h2 id="name">...</h2><small id="uname"></small></div>
+<h3>Live Market Rates</h3>
+<div class="grid" id="rates"></div>
+<script>
+const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+const u = tg.initDataUnsafe.user || {};
+document.getElementById("name").textContent = ((u.first_name||"")+" "+(u.last_name||"")).trim() || "Guest";
+document.getElementById("uname").textContent = u.username ? "@"+u.username : "";
+fetch("/api/rates").then(r=>r.json()).then(list=>{
+ document.getElementById("rates").innerHTML = list.map(c=>`<div class="card"><span class="tag ${c.active?"on":"off"}">${c.active?"Active":"Buy Stop"}</span><b>${c.name}</b><div class="rate">${c.rate}৳</div><small>Per 1,000 Coins</small></div>`).join("");
+});
+</script>
+</body>
+</html>
