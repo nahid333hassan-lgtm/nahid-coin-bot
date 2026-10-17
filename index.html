@@ -16,7 +16,16 @@ small{color:#64748b}
 .page{display:none}.page.show{display:block}
 .btn{display:block;text-align:center;padding:14px;border-radius:12px;background:#0ea5e9;color:#fff;text-decoration:none;font-weight:700;margin-bottom:10px}
 .btn.alt{background:#e0e7ff;color:#1d4ed8}
+button.btn{width:100%;border:0;font-size:16px;cursor:pointer}
+button.btn:disabled{opacity:.6}
 details{margin-bottom:10px}summary{font-weight:700}
+label{display:block;font-weight:700;margin:12px 0 4px}
+input,select,textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;background:#fff;color:#1e293b}
+.total{font-size:20px;font-weight:700;margin-top:12px}
+.info{background:#fef3c7;border-radius:12px;padding:12px;font-size:14px;margin-bottom:12px;white-space:pre-line}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.st{font-size:12px;color:#fff;padding:2px 8px;border-radius:6px}
+.pending{background:#f59e0b}.approved{background:#22c55e}.rejected{background:#ef4444}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;align-items:center;padding:8px 0;box-shadow:0 -2px 8px #0002}
 nav a{flex:1;text-align:center;font-size:13px;color:#64748b;text-decoration:none;padding:6px 0}
 nav a.act{color:#2563eb;font-weight:700}
@@ -38,6 +47,27 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
   <div class="card"><b>TOP FOLLOW COIN কীভাবে Sell করবেন?</b><br><small>ভিডিও শীঘ্রই যোগ হবে</small></div>
 </div>
 
+<div id="sell" class="page">
+  <h2>Sell Coin</h2>
+  <div class="info" id="info"></div>
+  <div class="card">
+    <label>কয়েন</label>
+    <select id="coin" onchange="updateTotal()"></select>
+    <label>পরিমাণ (কয়েন সংখ্যা)</label>
+    <input id="amount" type="number" inputmode="numeric" placeholder="যেমন: 12000" oninput="updateTotal()">
+    <label>পেমেন্ট মাধ্যম</label>
+    <select id="method">
+      <option>bKash</option><option>Nagad</option><option>Rocket</option><option>USDT BEP20</option>
+    </select>
+    <label>পেমেন্ট নম্বর / ঠিকানা</label>
+    <input id="number" placeholder="01XXXXXXXXX">
+    <label>নোট (ঐচ্ছিক)</label>
+    <textarea id="note" rows="2" placeholder="আপনার কয়েন অ্যাকাউন্টের ইউজারনেম বা ট্রানজ্যাকশন তথ্য"></textarea>
+    <div class="total" id="total"></div>
+  </div>
+  <button class="btn" id="submit" onclick="submitSell()">Submit Request</button>
+</div>
+
 <div id="support" class="page">
   <h2>Need Assistance?</h2>
   <a class="btn" href="#" onclick="tg.openTelegramLink(CHANNEL);return false">Join Official Channel</a>
@@ -51,13 +81,13 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
 
 <div id="history" class="page">
   <h2>Transaction History</h2>
-  <div class="card"><small>এখনো কোনো লেনদেন নেই।</small></div>
+  <div id="hlist"></div>
 </div>
 
 <nav>
   <a href="#" data-p="home" onclick="show('home');return false">Home</a>
   <a href="#" data-p="tutorial" onclick="show('tutorial');return false">Tutorial</a>
-  <a href="#" class="sell" onclick="tg.showAlert('SellNow শীঘ্রই আসছে');return false">SellNow</a>
+  <a href="#" class="sell" onclick="show('sell');return false">SellNow</a>
   <a href="#" data-p="support" onclick="show('support');return false">Support</a>
   <a href="#" data-p="history" onclick="show('history');return false">History</a>
 </nav>
@@ -66,17 +96,79 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
 const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
 const CHANNEL = "https://t.me/nahid_bhai1";
 const ADMIN = "https://t.me/nahid19536";
+const SEND_INFO = "প্রথমে অ্যাপে আমাদের অ্যাকাউন্টে কয়েন পাঠান, তারপর এই ফর্ম পূরণ করুন।";
+const STATUS = {pending: "Pending", approved: "Paid", rejected: "Rejected"};
+let RATES = [];
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const post = (url, body) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+
 const u = tg.initDataUnsafe.user || {};
-document.getElementById("name").textContent = ((u.first_name||"")+" "+(u.last_name||"")).trim() || "Guest";
-document.getElementById("uname").textContent = u.username ? "@"+u.username : "";
+$("name").textContent = ((u.first_name || "") + " " + (u.last_name || "")).trim() || "Guest";
+$("uname").textContent = u.username ? "@" + u.username : "";
+$("info").textContent = SEND_INFO; fetch("/api/info").then(r => r.json()).then(d => { if (d.text) $("info").textContent = d.text; }).catch(() => {});
+
 function show(id){
-  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("show",p.id===id));
-  document.querySelectorAll("nav a[data-p]").forEach(a=>a.classList.toggle("act",a.dataset.p===id));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === id));
+  document.querySelectorAll("nav a[data-p]").forEach(a => a.classList.toggle("act", a.dataset.p === id));
+  window.scrollTo(0, 0);
+  if (id === "history") loadHistory();
+  if (id === "sell") loadRates();
 }
+
+async function loadRates(){
+  try { RATES = await (await fetch("/api/rates")).json(); } catch (e) { RATES = []; }
+  $("rates").innerHTML = RATES.map(c => `<div class="card"><span class="tag ${c.active ? "on" : "off"}">${c.active ? "Active" : "Buy Stop"}</span><b>${esc(c.name)}</b><div class="rate">${esc(c.rate)}৳</div><small>Per 1,000 Coins</small></div>`).join("");
+  const keep = $("coin").value;
+  $("coin").innerHTML = RATES.filter(c => c.active).map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${esc(c.rate)}৳/1000)</option>`).join("");
+  if (keep) $("coin").value = keep;
+  updateTotal();
+}
+
+function updateTotal(){
+  const c = RATES.find(r => r.name === $("coin").value);
+  const a = parseInt($("amount").value) || 0;
+  $("total").textContent = (c && a) ? "আপনি পাবেন: " + (a / 1000 * c.rate).toFixed(2) + "৳" : "";
+}
+
+async function submitSell(){
+  const btn = $("submit");
+  const body = {init: tg.initData, coin: $("coin").value, amount: parseInt($("amount").value) || 0,
+                method: $("method").value, number: $("number").value, note: $("note").value};
+  if (!body.coin) { tg.showAlert("এখন কোনো কয়েন চালু নেই"); return; }
+  btn.disabled = true; btn.textContent = "পাঠানো হচ্ছে...";
+  try {
+    const r = await post("/api/sell", body);
+    const d = await r.json();
+    if (!r.ok) {
+      tg.showAlert(typeof d.detail === "string" ? d.detail : "তথ্য ঠিক নেই, আবার দেখুন");
+    } else {
+      tg.showAlert("✅ রিকোয়েস্ট #" + d.id + " পাঠানো হয়েছে");
+      $("amount").value = ""; $("note").value = ""; $("total").textContent = "";
+      show("history");
+    }
+  } catch (e) {
+    tg.showAlert("নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন");
+  }
+  btn.disabled = false; btn.textContent = "Submit Request";
+}
+
+async function loadHistory(){
+  const box = $("hlist");
+  box.innerHTML = '<div class="card"><small>লোড হচ্ছে...</small></div>';
+  try {
+    const r = await post("/api/history", {init: tg.initData});
+    const list = await r.json();
+    if (!r.ok || !Array.isArray(list)) { box.innerHTML = '<div class="card"><small>লোড করা যায়নি। অ্যাপটি বট থেকে আবার খুলুন।</small></div>'; return; }
+    box.innerHTML = list.length ? list.map(t => `<div class="card"><div class="row"><b>${esc(t.coin)}</b><span class="st ${esc(t.status)}">${esc(STATUS[t.status] || t.status)}</span></div><div>${esc(t.amount / 1000)} K · <b>${esc(t.total)}৳</b></div><small>#${esc(t.id)} · ${esc(t.payment_method)} · ${esc(new Date(t.created_at).toLocaleString())}</small></div>`).join("")
+      : '<div class="card"><small>এখনো কোনো লেনদেন নেই।</small></div>';
+  } catch (e) {
+    box.innerHTML = '<div class="card"><small>নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।</small></div>';
+  }
+}
+
 show("home");
-fetch("/api/rates").then(r=>r.json()).then(list=>{
-  document.getElementById("rates").innerHTML = list.map(c=>`<div class="card"><span class="tag ${c.active?"on":"off"}">${c.active?"Active":"Buy Stop"}</span><b>${c.name}</b><div class="rate">${c.rate}৳</div><small>Per 1,000 Coins</small></div>`).join("");
-});
+loadRates();
 </script>
 </body>
-                                                                                                                                                                                                          </html>
+</html>
