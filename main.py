@@ -331,3 +331,45 @@ async def sell(d: Sell):
     except Exception:
         pass
     return {"ok": True, "id": t["id"], "total": total}
+
+
+def norm_tg(s):
+    s = (s or "").strip()
+    if s.startswith("@"):
+        s = "https://t.me/" + s[1:]
+    elif s.startswith("t.me/"):
+        s = "https://" + s
+    elif s and "/" not in s and "." not in s:
+        s = "https://t.me/" + s
+    return s if s.startswith("https://t.me/") and len(s) > 14 else None
+
+
+@dp.message(Command("setchannel", "setadmin"))
+async def set_link(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    key = "channel_url" if command.command == "setchannel" else "admin_url"
+    url = norm_tg(command.args)
+    if not url:
+        await m.answer(f"ব্যবহার: /{command.command} @ইউজারনেম অথবা https://t.me/...")
+        return
+    try:
+        res = await sb("PATCH", "settings", params={"key": f"eq.{key}"}, body={"value": url})
+        await m.answer(f"✅ বদলে গেছে:\n{url}" if res else "❌ আগে Supabase-এ SQL চালান")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@app.get("/api/links")
+async def links():
+    out = {"channel": "", "admin": ""}
+    try:
+        rows = await sb("GET", "settings", params={"key": "in.(channel_url,admin_url)"})
+        for r in rows:
+            if r["key"] == "channel_url":
+                out["channel"] = r["value"]
+            elif r["key"] == "admin_url":
+                out["admin"] = r["value"]
+    except Exception:
+        pass
+    return out
