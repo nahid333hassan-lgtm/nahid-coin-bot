@@ -43,8 +43,7 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
 
 <div id="tutorial" class="page">
   <h2>Learning Center</h2>
-  <div class="card"><b>NS FOLLOWERS COIN কীভাবে Sell করবেন?</b><br><small>ভিডিও শীঘ্রই যোগ হবে</small></div>
-  <div class="card"><b>TOP FOLLOW COIN কীভাবে Sell করবেন?</b><br><small>ভিডিও শীঘ্রই যোগ হবে</small></div>
+  <div id="tlist"></div>
 </div>
 
 <div id="sell" class="page">
@@ -52,7 +51,8 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
   <div class="info" id="info"></div>
   <div class="card">
     <label>কয়েন</label>
-    <select id="coin" onchange="updateTotal()"></select><div class="info" id="addrbox" style="display:none;margin-top:12px"></div>
+    <select id="coin" onchange="updateTotal()"></select>
+    <div class="info" id="addrbox" style="display:none;margin-top:12px"></div>
     <label>পরিমাণ (কয়েন সংখ্যা)</label>
     <input id="amount" type="number" inputmode="numeric" placeholder="যেমন: 12000" oninput="updateTotal()">
     <label>পেমেন্ট মাধ্যম</label>
@@ -99,6 +99,7 @@ const ADMIN = "https://t.me/nahid19536";
 const SEND_INFO = "প্রথমে অ্যাপে আমাদের অ্যাকাউন্টে কয়েন পাঠান, তারপর এই ফর্ম পূরণ করুন।";
 const STATUS = {pending: "Pending", approved: "Paid", rejected: "Rejected"};
 let RATES = [];
+let TUTS = [];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const post = (url, body) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
@@ -106,7 +107,8 @@ const post = (url, body) => fetch(url, {method: "POST", headers: {"Content-Type"
 const u = tg.initDataUnsafe.user || {};
 $("name").textContent = ((u.first_name || "") + " " + (u.last_name || "")).trim() || "Guest";
 $("uname").textContent = u.username ? "@" + u.username : "";
-$("info").textContent = SEND_INFO; fetch("/api/info").then(r => r.json()).then(d => { if (d.text) $("info").textContent = d.text; }).catch(() => {});
+$("info").textContent = SEND_INFO;
+fetch("/api/info").then(r => r.json()).then(d => { if (d.text) $("info").textContent = d.text; }).catch(() => {});
 
 function show(id){
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === id));
@@ -114,6 +116,23 @@ function show(id){
   window.scrollTo(0, 0);
   if (id === "history") loadHistory();
   if (id === "sell") loadRates();
+  if (id === "tutorial") loadTutorials();
+}
+
+async function loadTutorials(){
+  const box = $("tlist");
+  box.innerHTML = '<div class="card"><small>লোড হচ্ছে...</small></div>';
+  try { TUTS = await (await fetch("/api/tutorials")).json(); } catch (e) { TUTS = []; }
+  if (!Array.isArray(TUTS)) TUTS = [];
+  box.innerHTML = TUTS.length
+    ? TUTS.map((t, i) => `<div class="card"><b>${esc(t.title)}</b><a class="btn" style="margin:12px 0 0" href="#" onclick="openTut(${i});return false">▶ ভিডিও দেখুন</a></div>`).join("")
+    : '<div class="card"><small>এখনো কোনো ভিডিও যোগ করা হয়নি।</small></div>';
+}
+
+function openTut(i){
+  const url = (TUTS[i] || {}).url;
+  if (!url) return;
+  if (/^https:\/\/t\.me\//.test(url)) tg.openTelegramLink(url); else tg.openLink(url);
 }
 
 async function loadRates(){
@@ -125,11 +144,11 @@ async function loadRates(){
   updateTotal();
 }
 
-function updateTotal(){  const cc = RATES.find(r => r.name === $("coin").value);
-  const box = $("addrbox");
-  if (cc && cc.send_to) { box.style.display = "block"; box.textContent = "📤 এই ঠিকানায় কয়েন পাঠান:\n" + cc.send_to; } else { box.style.display = "none"; }
+function updateTotal(){
   const c = RATES.find(r => r.name === $("coin").value);
   const a = parseInt($("amount").value) || 0;
+  const box = $("addrbox");
+  if (c && c.send_to) { box.style.display = "block"; box.textContent = "📤 এই ঠিকানায় কয়েন পাঠান:\n" + c.send_to; } else { box.style.display = "none"; }
   $("total").textContent = (c && a) ? "আপনি পাবেন: " + (a / 1000 * c.rate).toFixed(2) + "৳" : "";
 }
 
