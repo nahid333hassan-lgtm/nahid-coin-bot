@@ -68,6 +68,12 @@ async def admin_cmd(m: Message, command: CommandObject):
                 "/toggle NAME - চালু/বন্ধ করুন\n"
                 "/addcoin NAME 15 - নতুন কয়েন\n"
                 "/delcoin NAME - কয়েন মুছুন\n"
+                "/setaddr NAME ঠিকানা - কয়েন পাঠানোর ঠিকানা\n"
+                "/addrs - সব ঠিকানা দেখুন\n"
+                "/setinfo লেখা - ফর্মের নির্দেশনা\n"
+                "/addtut শিরোনাম লিংক - টিউটোরিয়াল ভিডিও\n"
+                "/tuts - ভিডিওর তালিকা\n"
+                "/deltut নম্বর - ভিডিও মুছুন\n"
                 "উদাহরণ: /setrate NS COIN 12"
             )
         elif cmd == "rates":
@@ -139,6 +145,93 @@ async def decide(cb: CallbackQuery):
     await cb.answer("হয়েছে")
 
 
+@dp.message(Command("setinfo"))
+async def set_info(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    text = (command.args or "").strip()
+    if not text:
+        await m.answer("ব্যবহার: /setinfo আপনার লেখা নির্দেশনা")
+        return
+    try:
+        await sb("PATCH", "settings", params={"key": "eq.send_info"}, body={"value": text[:500]})
+        await m.answer("✅ নির্দেশনা বদলে গেছে:\n" + text[:500])
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("setaddr"))
+async def set_addr(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    args = (command.args or "").strip()
+    try:
+        rows = await sb("GET", "rates", params={"select": "name"})
+        names = sorted((r["name"] for r in rows), key=len, reverse=True)
+        name = next((n for n in names if args.upper().startswith(n.upper())), None)
+        addr = args[len(name):].strip() if name else ""
+        if not name or not addr:
+            await m.answer("ব্যবহার: /setaddr কয়েনের নাম ঠিকানা\nউদাহরণ: /setaddr NS COIN @myusername")
+            return
+        await sb("PATCH", "rates", params={"name": f"eq.{name}"}, body={"send_to": addr[:300]})
+        await m.answer(f"✅ {name}-এর ঠিকানা বদলেছে:\n{addr[:300]}")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("addrs"))
+async def show_addrs(m: Message):
+    if m.from_user.id != ADMIN_ID:
+        return
+    try:
+        rows = await sb("GET", "rates", params={"select": "name,send_to", "order": "name"})
+        await m.answer("\n".join(f"{r['name']}: {r.get('send_to') or '(নেই)'}" for r in rows) or "কোনো কয়েন নেই")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("addtut"))
+async def add_tut(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    parts = (command.args or "").split()
+    if len(parts) < 2 or not parts[-1].startswith("http"):
+        await m.answer("ব্যবহার: /addtut ভিডিওর শিরোনাম লিংক\nউদাহরণ: /addtut NS COIN কীভাবে Sell করবেন https://youtu.be/xxxx")
+        return
+    title = " ".join(parts[:-1])[:150]
+    try:
+        res = await sb("POST", "tutorials", body={"title": title, "url": parts[-1][:500]})
+        await m.answer(f"✅ যোগ হয়েছে (#{res[0]['id']}): {title}")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("tuts"))
+async def list_tuts(m: Message):
+    if m.from_user.id != ADMIN_ID:
+        return
+    try:
+        rows = await sb("GET", "tutorials", params={"select": "id,title,url", "order": "id"})
+        await m.answer("\n\n".join(f"#{r['id']} {r['title']}\n{r['url']}" for r in rows) or "কোনো ভিডিও নেই")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
+@dp.message(Command("deltut"))
+async def del_tut(m: Message, command: CommandObject):
+    if m.from_user.id != ADMIN_ID:
+        return
+    arg = (command.args or "").strip().lstrip("#")
+    if not arg.isdigit():
+        await m.answer("ব্যবহার: /deltut নম্বর (নম্বর দেখতে /tuts)")
+        return
+    try:
+        res = await sb("DELETE", "tutorials", params={"id": f"eq.{arg}"})
+        await m.answer("🗑️ মুছে গেছে" if res else "❌ এই নম্বর নেই")
+    except Exception as e:
+        await m.answer(f"ত্রুটি: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app):
     task = asyncio.create_task(dp.start_polling(bot))
@@ -171,6 +264,23 @@ async def home():
 async def rates():
     try:
         return await sb("GET", "rates", params={"select": "*", "order": "rate.desc"})
+    except Exception:
+        return []
+
+
+@app.get("/api/info")
+async def info():
+    try:
+        rows = await sb("GET", "settings", params={"key": "eq.send_info"})
+        return {"text": rows[0]["value"] if rows else ""}
+    except Exception:
+        return {"text": ""}
+
+
+@app.get("/api/tutorials")
+async def tutorials():
+    try:
+        return await sb("GET", "tutorials", params={"select": "id,title,url", "order": "id"})
     except Exception:
         return []
 
@@ -221,55 +331,3 @@ async def sell(d: Sell):
     except Exception:
         pass
     return {"ok": True, "id": t["id"], "total": total}
-
-@dp.message(Command("setinfo"))
-async def set_info(m: Message, command: CommandObject):
-    if m.from_user.id != ADMIN_ID:
-        return
-    text = (command.args or "").strip()
-    if not text:
-        await m.answer("ব্যবহার: /setinfo আপনার লেখা নির্দেশনা")
-        return
-    try:
-        await sb("PATCH", "settings", params={"key": "eq.send_info"}, body={"value": text[:500]})
-        await m.answer("✅ নির্দেশনা বদলে গেছে:\n" + text[:500])
-    except Exception as e:
-        await m.answer(f"ত্রুটি: {e}")
-
-
-@app.get("/api/info")
-async def info():
-    try:
-        rows = await sb("GET", "settings", params={"key": "eq.send_info"})
-        return {"text": rows[0]["value"] if rows else ""}
-    except Exception:
-        return {"text": ""}
-
-@dp.message(Command("setaddr"))
-async def set_addr(m: Message, command: CommandObject):
-    if m.from_user.id != ADMIN_ID:
-        return
-    args = (command.args or "").strip()
-    try:
-        rows = await sb("GET", "rates", params={"select": "name"})
-        names = sorted((r["name"] for r in rows), key=len, reverse=True)
-        name = next((n for n in names if args.upper().startswith(n.upper())), None)
-        addr = args[len(name):].strip() if name else ""
-        if not name or not addr:
-            await m.answer("ব্যবহার: /setaddr কয়েনের নাম ঠিকানা\nউদাহরণ: /setaddr NS COIN @myusername")
-            return
-        await sb("PATCH", "rates", params={"name": f"eq.{name}"}, body={"send_to": addr[:300]})
-        await m.answer(f"✅ {name}-এর ঠিকানা বদলেছে:\n{addr[:300]}")
-    except Exception as e:
-        await m.answer(f"ত্রুটি: {e}")
-
-
-@dp.message(Command("addrs"))
-async def show_addrs(m: Message):
-    if m.from_user.id != ADMIN_ID:
-        return
-    try:
-        rows = await sb("GET", "rates", params={"select": "name,send_to", "order": "name"})
-        await m.answer("\n".join(f"{r['name']}: {r.get('send_to') or '(নেই)'}" for r in rows) or "কোনো কয়েন নেই")
-    except Exception as e:
-        await m.answer(f"ত্রুটি: {e}")
