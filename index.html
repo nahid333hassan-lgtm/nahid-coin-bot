@@ -94,8 +94,9 @@ nav a.sell{color:#fff;background:#2563eb;border-radius:12px;margin:0 4px;font-we
 
 <script>
 const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
-const CHANNEL = "https://t.me/nahid_bhai1";
-const ADMIN = "https://t.me/nahid19536";
+let CHANNEL = "https://t.me/nahid_bhai1";
+let ADMIN = "https://t.me/nahid19536";
+fetch("/api/links").then(r => r.json()).then(d => { if (d.channel) CHANNEL = d.channel; if (d.admin) ADMIN = d.admin; }).catch(() => {});
 const SEND_INFO = "প্রথমে অ্যাপে আমাদের অ্যাকাউন্টে কয়েন পাঠান, তারপর এই ফর্ম পূরণ করুন।";
 const STATUS = {pending: "Pending", approved: "Paid", rejected: "Rejected"};
 let RATES = [];
